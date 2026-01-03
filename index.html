@@ -19,13 +19,13 @@
         // --- Supabase 資訊 ---
         const SUPABASE_URL = 'https://uashjbomzjaroxyjiion.supabase.co'; 
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhc2hqYm9temphcm94eWppaW9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NTIzODksImV4cCI6MjA4MzAyODM4OX0.PRcS3VpX3dkKS5qRf-SqBNCytVvVEdO1mEGdk6SYR2U';
-        // --------------------
 
-        // 使用 _supabase 避開名稱衝突
+        // 這裡統一名稱為 _supabase
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         // 讀取資料的功能
         async function fetchExpenses() {
+            // 注意：這裡必須全部使用 _supabase
             const { data, error } = await _supabase
                 .from('expenses')
                 .select('*')
@@ -33,7 +33,7 @@
 
             if (error) {
                 console.error('讀取失敗:', error);
-                document.getElementById('expense-list').innerHTML = '<p class="text-center text-red-400">連線失敗，請檢查權限</p>';
+                document.getElementById('expense-list').innerHTML = `<p class="text-center text-red-400">連線失敗: ${error.message}</p>`;
                 return;
             }
             renderList(data);
@@ -45,26 +45,26 @@
             if (!amount || isNaN(amount)) return;
             const note = prompt(`備註 (選填):`, category);
 
+            // 注意：這裡也要改成 _supabase
             const { error } = await _supabase
                 .from('expenses')
                 .insert([{ amount: parseFloat(amount), category, note: note || category }]);
 
             if (error) {
-                alert('儲存失敗，請確認 Supabase 的 INSERT 權限已開');
+                alert('儲存失敗：' + error.message);
                 console.error(error);
             } else {
-                fetchExpenses(); // 重新整理清單
+                fetchExpenses();
             }
         }
 
-        // 畫出清單到網頁上
         function renderList(list) {
             const listEl = document.getElementById('expense-list');
             const totalEl = document.getElementById('total-amount');
             let total = 0;
             listEl.innerHTML = '';
 
-            if (list.length === 0) {
+            if (!list || list.length === 0) {
                 listEl.innerHTML = '<p class="text-center text-gray-400 py-4">目前還沒有紀錄喔</p>';
                 totalEl.innerText = '$ 0';
                 return;
@@ -77,7 +77,7 @@
                         <div class="flex items-center">
                             <div class="bg-pink-100 p-2 rounded-lg mr-3">${item.category === '產檢' ? '🏥' : '🍼'}</div>
                             <div>
-                                <p class="font-medium">${item.note}</p>
+                                <p class="font-medium">${item.note || item.category}</p>
                                 <p class="text-xs text-gray-400">${new Date(item.created_at).toLocaleDateString()}</p>
                             </div>
                         </div>
@@ -88,7 +88,6 @@
             totalEl.innerText = `$ ${total.toLocaleString()}`;
         }
 
-        // 頁面開啟時載入
         window.onload = fetchExpenses;
     </script>
 

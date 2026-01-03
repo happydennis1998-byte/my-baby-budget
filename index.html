@@ -6,13 +6,83 @@
     <title>我們的懷孕日記 👶</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-pink-50 min-h-screen pb-20 font-sans">
+<body class="bg-pink-50 min-h-screen pb-20 font-sans text-gray-800">
 
     <header class="bg-white p-6 rounded-b-3xl shadow-md text-center">
-        <h1 class="text-xl font-bold text-gray-800">我們的懷孕筆記</h1>
-        <p id="days-count" class="text-sm text-pink-500 mt-1">載入中...</p>
+        <h1 class="text-xl font-bold">我們的懷孕筆記</h1>
+        <p class="text-sm text-pink-500 mt-1 italic">同步雲端資料庫中...</p>
     </header>
+
+    <script>
+        // --- 請在這裡填入你的 Supabase 資訊 ---
+        const SUPABASE_URL = 'https://uashjbomzjaroxyjiion.supabase.co'; 
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhc2hqYm9temphcm94eWppaW9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NTIzODksImV4cCI6MjA4MzAyODM4OX0.PRcS3VpX3dkKS5qRf-SqBNCytVvVEdO1mEGdk6SYR2U';
+        // ------------------------------------
+
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // 讀取資料的功能
+        async function fetchExpenses() {
+            const { data, error } = await supabase
+                .from('expenses')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('讀取失敗:', error);
+                return;
+            }
+            renderList(data);
+        }
+
+        // 新增資料的功能
+        async function addExpense(category) {
+            const amount = prompt(`輸入「${category}」金額:`);
+            if (!amount || isNaN(amount)) return;
+            const note = prompt(`備註 (選填):`, category);
+
+            const { error } = await supabase
+                .from('expenses')
+                .insert([{ amount: parseFloat(amount), category, note: note || category }]);
+
+            if (error) {
+                alert('儲存失敗，請檢查資料表權限');
+                console.error(error);
+            } else {
+                fetchExpenses(); // 重新整理清單
+            }
+        }
+
+        // 畫出清單到網頁上
+        function renderList(list) {
+            const listEl = document.getElementById('expense-list');
+            const totalEl = document.getElementById('total-amount');
+            let total = 0;
+            listEl.innerHTML = '';
+
+            list.forEach(item => {
+                total += item.amount;
+                const html = `
+                    <div class="bg-white p-4 rounded-xl flex justify-between items-center shadow-sm">
+                        <div class="flex items-center">
+                            <div class="bg-pink-100 p-2 rounded-lg mr-3">${item.category === '產檢' ? '🏥' : '🍼'}</div>
+                            <div>
+                                <p class="font-medium">${item.note}</p>
+                                <p class="text-xs text-gray-400">${new Date(item.created_at).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                        <span class="font-bold text-rose-500">-$${item.amount}</span>
+                    </div>`;
+                listEl.insertAdjacentHTML('beforeend', html);
+            });
+            totalEl.innerText = `$ ${total.toLocaleString()}`;
+        }
+
+        // 頁面開啟時載入
+        window.onload = fetchExpenses;
+    </script>
 
     <main class="p-4">
         <div class="bg-gradient-to-r from-pink-400 to-rose-400 p-6 rounded-2xl text-white shadow-lg mb-6">
@@ -23,72 +93,21 @@
         <div class="grid grid-cols-2 gap-4 mb-6">
             <button onclick="addExpense('產檢')" class="bg-white p-4 rounded-2xl shadow-sm text-center active:scale-95 transition">
                 <i class="fas fa-stethoscope text-blue-400 text-2xl mb-2"></i>
-                <p class="text-sm font-medium text-gray-600">產檢紀錄</p>
+                <p class="text-sm font-medium">產檢紀錄</p>
             </button>
             <button onclick="addExpense('用品')" class="bg-white p-4 rounded-2xl shadow-sm text-center active:scale-95 transition">
                 <i class="fas fa-baby-carriage text-orange-400 text-2xl mb-2"></i>
-                <p class="text-sm font-medium text-gray-600">購買用品</p>
+                <p class="text-sm font-medium">購買用品</p>
             </button>
         </div>
 
         <section>
-            <h3 class="font-bold text-gray-700 mb-4 px-2 italic text-lg">最近紀錄</h3>
+            <h3 class="font-bold text-gray-700 mb-4 px-2">最近紀錄</h3>
             <div id="expense-list" class="space-y-3">
-                </div>
+                <p class="text-center text-gray-400">讀取中...</p>
+            </div>
         </section>
     </main>
 
-    <script>
-        // 初始化：讀取本地資料
-        let expenses = JSON.parse(localStorage.getItem('my_baby_records')) || [];
-
-        function updateUI() {
-            const listEl = document.getElementById('expense-list');
-            const totalEl = document.getElementById('total-amount');
-            listEl.innerHTML = '';
-            let total = 0;
-
-            expenses.forEach((item, index) => {
-                total += parseFloat(item.amount);
-                const html = `
-                    <div class="bg-white p-4 rounded-xl flex justify-between items-center shadow-sm">
-                        <div class="flex items-center">
-                            <div class="bg-pink-100 p-2 rounded-lg mr-3">${item.type === '產檢' ? '🏥' : '🍼'}</div>
-                            <div>
-                                <p class="font-medium text-gray-800">${item.note}</p>
-                                <p class="text-xs text-gray-400">${item.date}</p>
-                            </div>
-                        </div>
-                        <span class="font-bold text-rose-500">-$${item.amount}</span>
-                    </div>
-                `;
-                listEl.insertAdjacentHTML('beforeend', html);
-            });
-
-            totalEl.innerText = `$ ${total.toLocaleString()}`;
-            document.getElementById('days-count').innerText = `紀錄你們的幸福點滴`;
-        }
-
-        function addExpense(type) {
-            const amount = prompt(`輸入${type}金額:`);
-            if (!amount || isNaN(amount)) return;
-            
-            const note = prompt(`想寫下什麼嗎？(例如：第一次聽心跳)`, type);
-            
-            const newRecord = {
-                type,
-                amount,
-                note: note || type,
-                date: new Date().toLocaleDateString()
-            };
-
-            expenses.unshift(newRecord);
-            localStorage.setItem('my_baby_records', JSON.stringify(expenses));
-            updateUI();
-        }
-
-        // 頁面開啟時執行
-        updateUI();
-    </script>
 </body>
 </html>

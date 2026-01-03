@@ -16,22 +16,24 @@
     </header>
 
     <script>
-        // --- 請在這裡填入你的 Supabase 資訊 ---
+        // --- Supabase 資訊 ---
         const SUPABASE_URL = 'https://uashjbomzjaroxyjiion.supabase.co'; 
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhc2hqYm9temphcm94eWppaW9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NTIzODksImV4cCI6MjA4MzAyODM4OX0.PRcS3VpX3dkKS5qRf-SqBNCytVvVEdO1mEGdk6SYR2U';
-        // ------------------------------------
+        // --------------------
 
+        // 使用 _supabase 避開名稱衝突
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         // 讀取資料的功能
         async function fetchExpenses() {
-            const { data, error } = await supabase
+            const { data, error } = await _supabase
                 .from('expenses')
                 .select('*')
                 .order('created_at', { ascending: false });
 
             if (error) {
                 console.error('讀取失敗:', error);
+                document.getElementById('expense-list').innerHTML = '<p class="text-center text-red-400">連線失敗，請檢查權限</p>';
                 return;
             }
             renderList(data);
@@ -43,12 +45,12 @@
             if (!amount || isNaN(amount)) return;
             const note = prompt(`備註 (選填):`, category);
 
-            const { error } = await supabase
+            const { error } = await _supabase
                 .from('expenses')
                 .insert([{ amount: parseFloat(amount), category, note: note || category }]);
 
             if (error) {
-                alert('儲存失敗，請檢查資料表權限');
+                alert('儲存失敗，請確認 Supabase 的 INSERT 權限已開');
                 console.error(error);
             } else {
                 fetchExpenses(); // 重新整理清單
@@ -61,6 +63,12 @@
             const totalEl = document.getElementById('total-amount');
             let total = 0;
             listEl.innerHTML = '';
+
+            if (list.length === 0) {
+                listEl.innerHTML = '<p class="text-center text-gray-400 py-4">目前還沒有紀錄喔</p>';
+                totalEl.innerText = '$ 0';
+                return;
+            }
 
             list.forEach(item => {
                 total += item.amount;
@@ -111,4 +119,3 @@
 
 </body>
 </html>
-

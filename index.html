@@ -16,20 +16,17 @@
     </header>
 
     <script>
-        // --- Supabase 資訊 ---
         const SUPABASE_URL = 'https://uashjbomzjaroxyjiion.supabase.co'; 
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhc2hqYm9temphcm94eWppaW9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NTIzODksImV4cCI6MjA4MzAyODM4OX0.PRcS3VpX3dkKS5qRf-SqBNCytVvVEdO1mEGdk6SYR2U';
 
-        // 這裡統一名稱為 _supabase
+        // 統一名稱為 _supabase 避開衝突
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // 讀取資料的功能
         async function fetchExpenses() {
-            // 注意：這裡必須全部使用 _supabase
+            // 修正：移除不存在的 created_at 排序
             const { data, error } = await _supabase
                 .from('expenses')
-                .select('*')
-                .order('created_at', { ascending: false });
+                .select('*');
 
             if (error) {
                 console.error('讀取失敗:', error);
@@ -39,13 +36,12 @@
             renderList(data);
         }
 
-        // 新增資料的功能
         async function addExpense(category) {
             const amount = prompt(`輸入「${category}」金額:`);
             if (!amount || isNaN(amount)) return;
             const note = prompt(`備註 (選填):`, category);
 
-            // 注意：這裡也要改成 _supabase
+            // 這裡會將資料傳送到雲端
             const { error } = await _supabase
                 .from('expenses')
                 .insert([{ amount: parseFloat(amount), category, note: note || category }]);
@@ -70,7 +66,8 @@
                 return;
             }
 
-            list.forEach(item => {
+            // 因為沒有 created_at，我們手動讓最新的顯示在上面
+            list.reverse().forEach(item => {
                 total += item.amount;
                 const html = `
                     <div class="bg-white p-4 rounded-xl flex justify-between items-center shadow-sm">
@@ -78,7 +75,6 @@
                             <div class="bg-pink-100 p-2 rounded-lg mr-3">${item.category === '產檢' ? '🏥' : '🍼'}</div>
                             <div>
                                 <p class="font-medium">${item.note || item.category}</p>
-                                <p class="text-xs text-gray-400">${new Date(item.created_at).toLocaleDateString()}</p>
                             </div>
                         </div>
                         <span class="font-bold text-rose-500">-$${item.amount}</span>

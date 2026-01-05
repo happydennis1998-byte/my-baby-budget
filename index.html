@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我們的懷孕日記 👶</title>
+    <title>我們的懷孕日記 👶 v2.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -12,46 +12,55 @@
 
     <header class="bg-white p-6 rounded-b-3xl shadow-md text-center">
         <h1 class="text-xl font-bold">我們的懷孕筆記</h1>
-        <p class="text-sm text-pink-500 mt-1 italic">同步雲端資料庫中...</p>
+        <p class="text-sm text-pink-500 mt-1 italic">記錄每一筆心意</p>
     </header>
 
     <script>
         const SUPABASE_URL = 'https://uashjbomzjaroxyjiion.supabase.co'; 
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhc2hqYm9temphcm94eWppaW9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NTIzODksImV4cCI6MjA4MzAyODM4OX0.PRcS3VpX3dkKS5qRf-SqBNCytVvVEdO1mEGdk6SYR2U';
-
-        // 統一名稱為 _supabase 避開衝突
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         async function fetchExpenses() {
-            // 修正：移除不存在的 created_at 排序
-            const { data, error } = await _supabase
-                .from('expenses')
-                .select('*');
-
-            if (error) {
-                console.error('讀取失敗:', error);
-                document.getElementById('expense-list').innerHTML = `<p class="text-center text-red-400">連線失敗: ${error.message}</p>`;
-                return;
-            }
+            const { data, error } = await _supabase.from('expenses').select('*');
+            if (error) return;
             renderList(data);
         }
 
         async function addExpense(category) {
+            // 1. 輸入金額
             const amount = prompt(`輸入「${category}」金額:`);
             if (!amount || isNaN(amount)) return;
-            const note = prompt(`備註 (選填):`, category);
 
-            // 這裡會將資料傳送到雲端
+            // 2. 輸入備註
+            const note = prompt(`備註內容:`, category);
+
+            // 3. 自選圖案 (手動輸入 Emoji)
+            const defaultIcon = category === '產檢' ? '🏥' : category === '營養' ? '💊' : '🎁';
+            const icon = prompt(`想要什麼圖案？ (直接輸入 Emoji，例如 🧷, 🍼, 👕)`, defaultIcon) || defaultIcon;
+
+            // 4. 誰付錢
+            const payer = prompt(`誰付的錢？ (爸/媽)`, '媽');
+
+            // 存入資料庫 (我們把圖案暫時存在 payer 欄位或是 note 開頭)
+            // 為了不改動你的資料庫結構，我把圖案跟備註合在一起： "🧷 買尿布"
+            const finalNote = `${icon} ${note}`;
+
             const { error } = await _supabase
                 .from('expenses')
-                .insert([{ amount: parseFloat(amount), category, note: note || category }]);
+                .insert([{ 
+                    amount: parseFloat(amount), 
+                    category: category, 
+                    note: finalNote, 
+                    payer: payer 
+                }]);
 
-            if (error) {
-                alert('儲存失敗：' + error.message);
-                console.error(error);
-            } else {
-                fetchExpenses();
-            }
+            if (!error) fetchExpenses();
+        }
+
+        async function deleteExpense(id) {
+            if (!confirm('確定要刪除嗎？')) return;
+            await _supabase.from('expenses').delete().eq('id', id);
+            fetchExpenses();
         }
 
         function renderList(list) {
@@ -66,18 +75,29 @@
                 return;
             }
 
-            // 因為沒有 created_at，我們手動讓最新的顯示在上面
-            list.reverse().forEach(item => {
+            list.sort((a, b) => b.id - a.id).forEach(item => {
                 total += item.amount;
+                
+                // 從備註中分離出圖案與文字 (如果有的話)
+                const noteParts = item.note.split(' ');
+                const displayIcon = noteParts.length > 1 ? noteParts[0] : (item.category === '產檢' ? '🏥' : '🎁');
+                const displayText = noteParts.length > 1 ? noteParts.slice(1).join(' ') : item.note;
+
                 const html = `
                     <div class="bg-white p-4 rounded-xl flex justify-between items-center shadow-sm">
                         <div class="flex items-center">
-                            <div class="bg-pink-100 p-2 rounded-lg mr-3">${item.category === '產檢' ? '🏥' : '🍼'}</div>
+                            <div class="bg-pink-100 p-2 rounded-lg mr-3 text-2xl">${displayIcon}</div>
                             <div>
-                                <p class="font-medium">${item.note || item.category}</p>
+                                <p class="font-bold text-gray-700">${displayText}</p>
+                                <p class="text-xs text-pink-400">支付者: ${item.payer || '未註記'}</p>
                             </div>
                         </div>
-                        <span class="font-bold text-rose-500">-$${item.amount}</span>
+                        <div class="flex items-center gap-4">
+                            <span class="font-bold text-rose-500">-$${item.amount}</span>
+                            <button onclick="deleteExpense(${item.id})" class="text-gray-300">
+                                <i class="fas fa-trash-alt text-xs"></i>
+                            </button>
+                        </div>
                     </div>`;
                 listEl.insertAdjacentHTML('beforeend', html);
             });
@@ -88,24 +108,28 @@
     </script>
 
     <main class="p-4">
-        <div class="bg-gradient-to-r from-pink-400 to-rose-400 p-6 rounded-2xl text-white shadow-lg mb-6">
-            <p class="text-sm opacity-90 text-center">累計準備基金</p>
-            <h2 id="total-amount" class="text-4xl font-bold text-center mt-2">$ 0</h2>
+        <div class="bg-gradient-to-br from-rose-400 to-pink-500 p-8 rounded-3xl text-white shadow-xl mb-6 text-center">
+            <p class="text-sm opacity-80 mb-2 font-medium tracking-widest">目前累計支出</p>
+            <h2 id="total-amount" class="text-5xl font-extrabold">$ 0</h2>
         </div>
 
-        <div class="grid grid-cols-2 gap-4 mb-6">
-            <button onclick="addExpense('產檢')" class="bg-white p-4 rounded-2xl shadow-sm text-center active:scale-95 transition">
-                <i class="fas fa-stethoscope text-blue-400 text-2xl mb-2"></i>
-                <p class="text-sm font-medium">產檢紀錄</p>
+        <div class="grid grid-cols-3 gap-3 mb-8 text-center">
+            <button onclick="addExpense('產檢')" class="bg-white p-3 rounded-2xl shadow-sm active:scale-95 transition">
+                <i class="fas fa-stethoscope text-blue-400 text-xl mb-1"></i>
+                <p class="text-xs font-bold text-gray-600">產檢</p>
             </button>
-            <button onclick="addExpense('用品')" class="bg-white p-4 rounded-2xl shadow-sm text-center active:scale-95 transition">
-                <i class="fas fa-baby-carriage text-orange-400 text-2xl mb-2"></i>
-                <p class="text-sm font-medium">購買用品</p>
+            <button onclick="addExpense('用品')" class="bg-white p-3 rounded-2xl shadow-sm active:scale-95 transition">
+                <i class="fas fa-baby-carriage text-orange-400 text-xl mb-1"></i>
+                <p class="text-xs font-bold text-gray-600">用品</p>
+            </button>
+            <button onclick="addExpense('營養')" class="bg-white p-3 rounded-2xl shadow-sm active:scale-95 transition">
+                <i class="fas fa-pills text-green-400 text-xl mb-1"></i>
+                <p class="text-xs font-bold text-gray-600">營養品</p>
             </button>
         </div>
 
         <section>
-            <h3 class="font-bold text-gray-700 mb-4 px-2">最近紀錄</h3>
+            <h3 class="font-bold text-gray-700 mb-4 px-2">最近支出紀錄</h3>
             <div id="expense-list" class="space-y-3">
                 <p class="text-center text-gray-400">讀取中...</p>
             </div>

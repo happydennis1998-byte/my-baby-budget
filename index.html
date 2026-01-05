@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我們的懷孕日記 👶 v2.6</title>
+    <title>我們的懷孕日記 👶 v2.7</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -12,14 +12,14 @@
 
     <header class="bg-white p-6 rounded-b-3xl shadow-md flex justify-between items-center">
         <div>
-            <h1 class="text-xl font-bold">我們的懷孕筆記</h1>
-            <p id="current-month-display" class="text-sm text-pink-500 italic">所有紀錄</p>
+            <h1 class="text-xl font-bold text-gray-800">我們的懷孕筆記</h1>
+            <p id="month-label" class="text-xs text-pink-500 font-medium italic">載入所有紀錄中...</p>
         </div>
-        <select id="month-filter" onchange="fetchExpenses()" class="bg-pink-100 text-pink-600 text-sm font-bold py-2 px-3 rounded-xl border-none focus:ring-2 focus:ring-pink-300">
+        <select id="month-filter" onchange="fetchExpenses()" class="bg-pink-100 text-pink-600 text-sm font-bold py-2 px-3 rounded-xl border-none focus:ring-2 focus:ring-pink-300 outline-none">
             <option value="all">全部月份</option>
-            <option value="01">1月</option><option value="02">2月</option><option value="03">3月</option>
-            <option value="04">4月</option><option value="05">5月</option><option value="06">6月</option>
-            <option value="07">7月</option><option value="08">8月</option><option value="09">9月</option>
+            <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+            <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+            <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
             <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
         </select>
     </header>
@@ -33,20 +33,20 @@
 
         async function fetchExpenses() {
             const selectedMonth = document.getElementById('month-filter').value;
-            // 讀取資料並按時間排序
+            // 按日期排序，讓最新的排最前面
             let { data, error } = await _supabase.from('expenses').select('*').order('created_at', { ascending: false });
             
             if (error) return;
 
-            // 如果有選擇特定月份，進行篩選
+            // 執行月份篩選
             if (selectedMonth !== "all") {
                 data = data.filter(item => {
-                    const itemMonth = new Date(item.created_at).getMonth() + 1;
-                    return itemMonth === parseInt(selectedMonth);
+                    const date = new Date(item.created_at);
+                    return (date.getMonth() + 1) === parseInt(selectedMonth);
                 });
-                document.getElementById('current-month-display').innerText = `${parseInt(selectedMonth)}月 紀錄`;
+                document.getElementById('month-label').innerText = `${selectedMonth}月 支出清單`;
             } else {
-                document.getElementById('current-month-display').innerText = `所有紀錄`;
+                document.getElementById('month-label').innerText = `顯示所有月份紀錄`;
             }
 
             renderList(data);
@@ -65,12 +65,13 @@
             const payer = prompt(`誰付的錢？ (爸/媽)`, '媽');
             const finalNote = `${icon} ${note}`;
 
+            // 新增資料到 Supabase
             await _supabase.from('expenses').insert([{ amount: parseFloat(amount), category, note: finalNote, payer }]);
             fetchExpenses();
         }
 
         async function deleteExpense(id) {
-            if (!confirm('確定要刪除嗎？')) return;
+            if (!confirm('確定要刪除這筆紀錄嗎？')) return;
             await _supabase.from('expenses').delete().eq('id', id);
             fetchExpenses();
         }
@@ -86,8 +87,10 @@
                 const noteParts = item.note.split(' ');
                 const displayIcon = noteParts.length > 1 ? noteParts[0] : '🎁';
                 const displayText = noteParts.length > 1 ? noteParts.slice(1).join(' ') : item.note;
+                
+                // 格式化日期
                 const dateObj = new Date(item.created_at);
-                const dateStr = `${dateObj.getMonth()+1}/${dateObj.getDate()}`;
+                const dateDisplay = isNaN(dateObj) ? "無日期" : `${dateObj.getMonth()+1}/${dateObj.getDate()}`;
 
                 const html = `
                     <div class="bg-white p-4 rounded-xl flex justify-between items-center shadow-sm">
@@ -95,12 +98,12 @@
                             <div class="bg-pink-100 p-2 rounded-lg mr-3 text-2xl">${displayIcon}</div>
                             <div>
                                 <p class="font-bold text-gray-700">${displayText}</p>
-                                <p class="text-[10px] text-gray-400">${dateStr} · 支付者: ${item.payer || '未註記'}</p>
+                                <p class="text-[10px] text-gray-400 font-medium">📅 ${dateDisplay} · 👤 支付者: ${item.payer || '未註記'}</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-4">
-                            <span class="font-bold text-rose-500">-$${item.amount}</span>
-                            <button onclick="deleteExpense(${item.id})" class="text-gray-300 hover:text-red-400">
+                            <span class="font-bold text-rose-500">-$${item.amount.toLocaleString()}</span>
+                            <button onclick="deleteExpense(${item.id})" class="text-gray-300 hover:text-red-400 p-1">
                                 <i class="fas fa-trash-alt text-xs"></i>
                             </button>
                         </div>
@@ -119,18 +122,21 @@
         </div>
 
         <div class="grid grid-cols-3 gap-3 mb-8 text-center">
-            <button onclick="addExpense('產檢')" class="bg-white p-3 rounded-2xl shadow-sm border-b-4 border-blue-200">
+            <button onclick="addExpense('產檢')" class="bg-white p-3 rounded-2xl shadow-sm border-b-4 border-blue-200 active:scale-95 transition">
                 <i class="fas fa-stethoscope text-blue-400 text-xl mb-1"></i><p class="text-xs font-bold text-gray-600">產檢</p>
             </button>
-            <button onclick="addExpense('用品')" class="bg-white p-3 rounded-2xl shadow-sm border-b-4 border-orange-200">
+            <button onclick="addExpense('用品')" class="bg-white p-3 rounded-2xl shadow-sm border-b-4 border-orange-200 active:scale-95 transition">
                 <i class="fas fa-baby-carriage text-orange-400 text-xl mb-1"></i><p class="text-xs font-bold text-gray-600">用品</p>
             </button>
-            <button onclick="addExpense('營養')" class="bg-white p-3 rounded-2xl shadow-sm border-b-4 border-green-200">
+            <button onclick="addExpense('營養')" class="bg-white p-3 rounded-2xl shadow-sm border-b-4 border-green-200 active:scale-95 transition">
                 <i class="fas fa-pills text-green-400 text-xl mb-1"></i><p class="text-xs font-bold text-gray-600">營養</p>
             </button>
         </div>
 
-        <section id="expense-list" class="space-y-3"></section>
+        <section id="expense-list" class="space-y-3">
+            <p class="text-center text-gray-400 py-10">資料讀取中...</p>
+        </section>
     </main>
+
 </body>
 </html>

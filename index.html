@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我們的懷孕日記 👶 v2.3</title>
+    <title>我們的懷孕日記 👶 v2.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-pink-50 min-h-screen pb-20 font-sans text-gray-800">
 
-    <header class="bg-white p-6 rounded-b-3xl shadow-md text-center">
+    <header class="bg-white p-6 rounded-b-3xl shadow-md text-center border-b-2 border-pink-100">
         <h1 class="text-xl font-bold">我們的懷孕筆記</h1>
-        <p class="text-sm text-pink-500 mt-1 italic">點選圖案，記錄生活</p>
+        <p class="text-sm text-pink-500 mt-1 italic">記錄每一筆幸福支出</p>
     </header>
 
     <script>
@@ -20,34 +20,32 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhc2hqYm9temphcm94eWppaW9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NTIzODksImV4cCI6MjA4MzAyODM4OX0.PRcS3VpX3dkKS5qRf-SqBNCytVvVEdO1mEGdk6SYR2U';
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // --- 常用圖案選單 ---
         const emojiList = ['🏥', '💊', '🍼', '🧷', '🧸', '👕', '🧼', '🚗', '🍱', '🤰', '🤱', '👶'];
 
         async function fetchExpenses() {
             const { data, error } = await _supabase.from('expenses').select('*');
-            if (error) return;
+            if (error) {
+                console.error('讀取失敗:', error);
+                return;
+            }
             renderList(data);
         }
 
         async function addExpense(category) {
             const amount = prompt(`輸入「${category}」金額:`);
             if (!amount || isNaN(amount)) return;
-
             const note = prompt(`備註內容:`, category);
-
-            // 製作圖案選單字串
+            
             let emojiMenu = "請選擇圖案編號：\n";
             emojiList.forEach((e, i) => { emojiMenu += `${i + 1}. ${e}  `; if((i+1)%4==0) emojiMenu += "\n"; });
             emojiMenu += "0. 手動輸入其他";
 
             const choice = prompt(emojiMenu, "1");
             let icon = "";
-            
             if (choice === "0") {
-                icon = prompt("請輸入你想使用的 Emoji:", "🎁");
+                icon = prompt("請輸入 Emoji:", "🎁");
             } else {
-                const index = parseInt(choice) - 1;
-                icon = emojiList[index] || (category === '產檢' ? '🏥' : '🎁');
+                icon = emojiList[parseInt(choice) - 1] || '🎁';
             }
 
             const payer = prompt(`誰付的錢？ (爸/媽)`, '媽');
@@ -57,13 +55,29 @@
                 .from('expenses')
                 .insert([{ amount: parseFloat(amount), category, note: finalNote, payer }]);
 
-            if (!error) fetchExpenses();
+            if (error) alert('新增失敗：' + error.message);
+            else fetchExpenses();
         }
 
+        // --- 加強版刪除功能 ---
         async function deleteExpense(id) {
-            if (!confirm('確定要刪除嗎？')) return;
-            await _supabase.from('expenses').delete().eq('id', id);
-            fetchExpenses();
+            if (!id) {
+                alert('找不到這筆資料的 ID，請重新整理網頁再試');
+                return;
+            }
+            if (!confirm('確定要刪除這筆紀錄嗎？')) return;
+
+            const { error } = await _supabase
+                .from('expenses')
+                .delete()
+                .eq('id', id); // 這裡會根據 ID 刪除
+
+            if (error) {
+                alert('刪除失敗：' + error.message + '\n請檢查 Supabase DELETE 權限是否開啟');
+                console.error('刪除出錯:', error);
+            } else {
+                fetchExpenses();
+            }
         }
 
         function renderList(list) {
@@ -87,16 +101,16 @@
                 const html = `
                     <div class="bg-white p-4 rounded-xl flex justify-between items-center shadow-sm">
                         <div class="flex items-center">
-                            <div class="bg-pink-100 p-2 rounded-lg mr-3 text-2xl">${displayIcon}</div>
+                            <div class="bg-pink-100 p-2 rounded-lg mr-3 text-2xl shadow-inner">${displayIcon}</div>
                             <div>
                                 <p class="font-bold text-gray-700">${displayText}</p>
-                                <p class="text-xs text-pink-400">支付者: ${item.payer || '未註記'}</p>
+                                <p class="text-xs text-pink-400 font-medium">支付者: ${item.payer || '未註記'}</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-4">
                             <span class="font-bold text-rose-500">-$${item.amount}</span>
-                            <button onclick="deleteExpense(${item.id})" class="text-gray-300">
-                                <i class="fas fa-trash-alt text-xs"></i>
+                            <button onclick="deleteExpense(${item.id})" class="p-2 text-gray-300 hover:text-red-500 transition-colors">
+                                <i class="fas fa-trash-alt"></i>
                             </button>
                         </div>
                     </div>`;
@@ -110,7 +124,7 @@
 
     <main class="p-4">
         <div class="bg-gradient-to-br from-rose-400 to-pink-500 p-8 rounded-3xl text-white shadow-xl mb-6 text-center">
-            <p class="text-sm opacity-80 mb-2 font-medium tracking-widest">目前累計支出</p>
+            <p class="text-sm opacity-80 mb-2 font-medium tracking-widest uppercase">Total Expenses</p>
             <h2 id="total-amount" class="text-5xl font-extrabold">$ 0</h2>
         </div>
 
@@ -130,9 +144,9 @@
         </div>
 
         <section>
-            <h3 class="font-bold text-gray-700 mb-4 px-2 italic underline decoration-pink-300">最近支出紀錄</h3>
+            <h3 class="font-bold text-gray-700 mb-4 px-2 italic underline decoration-pink-300 decoration-2">最近支出紀錄</h3>
             <div id="expense-list" class="space-y-3">
-                <p class="text-center text-gray-400">讀取中...</p>
+                <p class="text-center text-gray-400">載入中...</p>
             </div>
         </section>
     </main>

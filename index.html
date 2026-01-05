@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我們的懷孕日記 👶 v2.2</title>
+    <title>我們的懷孕日記 👶 v2.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -12,13 +12,16 @@
 
     <header class="bg-white p-6 rounded-b-3xl shadow-md text-center">
         <h1 class="text-xl font-bold">我們的懷孕筆記</h1>
-        <p class="text-sm text-pink-500 mt-1 italic">記錄每一筆心意</p>
+        <p class="text-sm text-pink-500 mt-1 italic">點選圖案，記錄生活</p>
     </header>
 
     <script>
         const SUPABASE_URL = 'https://uashjbomzjaroxyjiion.supabase.co'; 
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhc2hqYm9temphcm94eWppaW9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NTIzODksImV4cCI6MjA4MzAyODM4OX0.PRcS3VpX3dkKS5qRf-SqBNCytVvVEdO1mEGdk6SYR2U';
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // --- 常用圖案選單 ---
+        const emojiList = ['🏥', '💊', '🍼', '🧷', '🧸', '👕', '🧼', '🚗', '🍱', '🤰', '🤱', '👶'];
 
         async function fetchExpenses() {
             const { data, error } = await _supabase.from('expenses').select('*');
@@ -27,32 +30,32 @@
         }
 
         async function addExpense(category) {
-            // 1. 輸入金額
             const amount = prompt(`輸入「${category}」金額:`);
             if (!amount || isNaN(amount)) return;
 
-            // 2. 輸入備註
             const note = prompt(`備註內容:`, category);
 
-            // 3. 自選圖案 (手動輸入 Emoji)
-            const defaultIcon = category === '產檢' ? '🏥' : category === '營養' ? '💊' : '🎁';
-            const icon = prompt(`想要什麼圖案？ (直接輸入 Emoji，例如 🧷, 🍼, 👕)`, defaultIcon) || defaultIcon;
+            // 製作圖案選單字串
+            let emojiMenu = "請選擇圖案編號：\n";
+            emojiList.forEach((e, i) => { emojiMenu += `${i + 1}. ${e}  `; if((i+1)%4==0) emojiMenu += "\n"; });
+            emojiMenu += "0. 手動輸入其他";
 
-            // 4. 誰付錢
+            const choice = prompt(emojiMenu, "1");
+            let icon = "";
+            
+            if (choice === "0") {
+                icon = prompt("請輸入你想使用的 Emoji:", "🎁");
+            } else {
+                const index = parseInt(choice) - 1;
+                icon = emojiList[index] || (category === '產檢' ? '🏥' : '🎁');
+            }
+
             const payer = prompt(`誰付的錢？ (爸/媽)`, '媽');
-
-            // 存入資料庫 (我們把圖案暫時存在 payer 欄位或是 note 開頭)
-            // 為了不改動你的資料庫結構，我把圖案跟備註合在一起： "🧷 買尿布"
             const finalNote = `${icon} ${note}`;
 
             const { error } = await _supabase
                 .from('expenses')
-                .insert([{ 
-                    amount: parseFloat(amount), 
-                    category: category, 
-                    note: finalNote, 
-                    payer: payer 
-                }]);
+                .insert([{ amount: parseFloat(amount), category, note: finalNote, payer }]);
 
             if (!error) fetchExpenses();
         }
@@ -77,10 +80,8 @@
 
             list.sort((a, b) => b.id - a.id).forEach(item => {
                 total += item.amount;
-                
-                // 從備註中分離出圖案與文字 (如果有的話)
                 const noteParts = item.note.split(' ');
-                const displayIcon = noteParts.length > 1 ? noteParts[0] : (item.category === '產檢' ? '🏥' : '🎁');
+                const displayIcon = noteParts.length > 1 ? noteParts[0] : '🎁';
                 const displayText = noteParts.length > 1 ? noteParts.slice(1).join(' ') : item.note;
 
                 const html = `
@@ -114,22 +115,22 @@
         </div>
 
         <div class="grid grid-cols-3 gap-3 mb-8 text-center">
-            <button onclick="addExpense('產檢')" class="bg-white p-3 rounded-2xl shadow-sm active:scale-95 transition">
+            <button onclick="addExpense('產檢')" class="bg-white p-3 rounded-2xl shadow-sm active:scale-95 transition border-b-4 border-blue-200">
                 <i class="fas fa-stethoscope text-blue-400 text-xl mb-1"></i>
                 <p class="text-xs font-bold text-gray-600">產檢</p>
             </button>
-            <button onclick="addExpense('用品')" class="bg-white p-3 rounded-2xl shadow-sm active:scale-95 transition">
+            <button onclick="addExpense('用品')" class="bg-white p-3 rounded-2xl shadow-sm active:scale-95 transition border-b-4 border-orange-200">
                 <i class="fas fa-baby-carriage text-orange-400 text-xl mb-1"></i>
                 <p class="text-xs font-bold text-gray-600">用品</p>
             </button>
-            <button onclick="addExpense('營養')" class="bg-white p-3 rounded-2xl shadow-sm active:scale-95 transition">
+            <button onclick="addExpense('營養')" class="bg-white p-3 rounded-2xl shadow-sm active:scale-95 transition border-b-4 border-green-200">
                 <i class="fas fa-pills text-green-400 text-xl mb-1"></i>
                 <p class="text-xs font-bold text-gray-600">營養品</p>
             </button>
         </div>
 
         <section>
-            <h3 class="font-bold text-gray-700 mb-4 px-2">最近支出紀錄</h3>
+            <h3 class="font-bold text-gray-700 mb-4 px-2 italic underline decoration-pink-300">最近支出紀錄</h3>
             <div id="expense-list" class="space-y-3">
                 <p class="text-center text-gray-400">讀取中...</p>
             </div>

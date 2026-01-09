@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我們的懷孕日記 👶 v2.7</title>
+    <title>我們的懷孕日記 v3.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-pink-50 min-h-screen pb-20 font-sans text-gray-800">
+<body class="bg-pink-50 min-h-screen pb-24 font-sans text-gray-800">
 
     <header class="bg-white p-6 rounded-b-3xl shadow-md flex justify-between items-center">
         <div>
-            <h1 class="text-xl font-bold text-gray-800">我們的懷孕筆記</h1>
-            <p id="month-label" class="text-xs text-pink-500 font-medium italic">載入所有紀錄中...</p>
+            <h1 class="text-xl font-bold">我們的懷孕筆記</h1>
+            <p id="month-label" class="text-xs text-pink-500 font-medium">準備中...</p>
         </div>
-        <select id="month-filter" onchange="fetchExpenses()" class="bg-pink-100 text-pink-600 text-sm font-bold py-2 px-3 rounded-xl border-none focus:ring-2 focus:ring-pink-300 outline-none">
-            <option value="all">全部月份</option>
+        <select id="month-filter" onchange="fetchExpenses()" class="bg-pink-100 text-pink-600 text-sm font-bold py-2 px-3 rounded-xl border-none outline-none">
+            <option value="all">全部</option>
             <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
             <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
             <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
@@ -24,54 +24,136 @@
         </select>
     </header>
 
+    <main class="p-4">
+        <div class="bg-gradient-to-br from-rose-400 to-pink-500 p-8 rounded-3xl text-white shadow-xl mb-6 text-center">
+            <h2 id="total-amount" class="text-5xl font-extrabold">$ 0</h2>
+        </div>
+
+        <section id="input-panel" class="hidden bg-white p-6 rounded-3xl shadow-lg mb-6 border-2 border-pink-200">
+            <h3 id="panel-title" class="font-bold text-gray-700 mb-4 text-center">新增紀錄</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-1">金額</label>
+                    <input type="number" id="form-amount" placeholder="輸入金額" class="w-full bg-gray-50 p-3 rounded-xl outline-none focus:ring-2 focus:ring-pink-300">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-1">備註</label>
+                    <input type="text" id="form-note" placeholder="例如：買尿布" class="w-full bg-gray-50 p-3 rounded-xl outline-none focus:ring-2 focus:ring-pink-300">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-1">選擇圖案</label>
+                    <div id="emoji-picker" class="flex flex-wrap gap-2 text-2xl bg-gray-50 p-3 rounded-xl">
+                        </div>
+                    <input type="hidden" id="form-icon" value="🎁">
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-gray-400 mb-1">支付者</label>
+                        <select id="form-payer" class="w-full bg-gray-50 p-3 rounded-xl outline-none">
+                            <option value="媽">媽</option>
+                            <option value="爸">爸</option>
+                        </select>
+                    </div>
+                    <div class="flex-1 flex items-end">
+                        <button onclick="saveExpense()" class="w-full bg-rose-500 text-white font-bold py-3 rounded-xl shadow-md active:scale-95 transition">儲存</button>
+                    </div>
+                </div>
+                <button onclick="togglePanel()" class="w-full text-gray-400 text-xs py-2">取消</button>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-3 gap-3 mb-8 text-center">
+            <button onclick="openPanel('產檢')" class="bg-white p-3 rounded-2xl shadow-sm border-b-4 border-blue-200">
+                <i class="fas fa-stethoscope text-blue-400 text-xl mb-1"></i><p class="text-xs font-bold text-gray-600">產檢</p>
+            </button>
+            <button onclick="openPanel('用品')" class="bg-white p-3 rounded-2xl shadow-sm border-b-4 border-orange-200">
+                <i class="fas fa-baby-carriage text-orange-400 text-xl mb-1"></i><p class="text-xs font-bold text-gray-600">用品</p>
+            </button>
+            <button onclick="openPanel('營養')" class="bg-white p-3 rounded-2xl shadow-sm border-b-4 border-green-200">
+                <i class="fas fa-pills text-green-400 text-xl mb-1"></i><p class="text-xs font-bold text-gray-600">營養</p>
+            </button>
+        </div>
+
+        <section id="expense-list" class="space-y-3"></section>
+    </main>
+
     <script>
         const SUPABASE_URL = 'https://uashjbomzjaroxyjiion.supabase.co'; 
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhc2hqYm9temphcm94eWppaW9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NTIzODksImV4cCI6MjA4MzAyODM4OX0.PRcS3VpX3dkKS5qRf-SqBNCytVvVEdO1mEGdk6SYR2U';
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         const emojiList = ['🏥', '💊', '🍼', '🧷', '🧸', '👕', '🧼', '🚗', '🍱', '🤰', '🤱', '👶'];
+        let currentCategory = '';
+
+        // 生成 Emoji 選單
+        const emojiPicker = document.getElementById('emoji-picker');
+        emojiList.forEach(e => {
+            const btn = document.createElement('button');
+            btn.innerText = e;
+            btn.className = "emoji-option p-1 rounded-lg border-2 border-transparent";
+            btn.onclick = () => selectEmoji(e, btn);
+            emojiPicker.appendChild(btn);
+        });
+
+        function selectEmoji(e, btn) {
+            document.querySelectorAll('.emoji-option').forEach(b => b.classList.remove('border-pink-400', 'bg-white'));
+            btn.classList.add('border-pink-400', 'bg-white');
+            document.getElementById('form-icon').value = e;
+        }
+
+        function togglePanel() {
+            const panel = document.getElementById('input-panel');
+            panel.classList.toggle('hidden');
+        }
+
+        function openPanel(category) {
+            currentCategory = category;
+            document.getElementById('panel-title').innerText = `新增「${category}」紀錄`;
+            document.getElementById('form-note').value = category;
+            document.getElementById('form-amount').value = '';
+            document.getElementById('input-panel').classList.remove('hidden');
+            window.scrollTo({ top: 100, behavior: 'smooth' });
+        }
+
+        async function saveExpense() {
+            const amount = document.getElementById('form-amount').value;
+            const note = document.getElementById('form-note').value;
+            const icon = document.getElementById('form-icon').value;
+            const payer = document.getElementById('form-payer').value;
+
+            if (!amount) return alert('請輸入金額');
+
+            const finalNote = `${icon} ${note}`;
+            const { error } = await _supabase.from('expenses').insert([{ 
+                amount: parseFloat(amount), 
+                category: currentCategory, 
+                note: finalNote, 
+                payer 
+            }]);
+
+            if (error) alert('儲存失敗');
+            else {
+                togglePanel();
+                fetchExpenses();
+            }
+        }
 
         async function fetchExpenses() {
-            const selectedMonth = document.getElementById('month-filter').value;
-            // 按日期排序，讓最新的排最前面
+            const month = document.getElementById('month-filter').value;
             let { data, error } = await _supabase.from('expenses').select('*').order('created_at', { ascending: false });
-            
             if (error) return;
 
-            // 執行月份篩選
-            if (selectedMonth !== "all") {
-                data = data.filter(item => {
-                    const date = new Date(item.created_at);
-                    return (date.getMonth() + 1) === parseInt(selectedMonth);
-                });
-                document.getElementById('month-label').innerText = `${selectedMonth}月 支出清單`;
+            if (month !== "all") {
+                data = data.filter(item => (new Date(item.created_at).getMonth() + 1) === parseInt(month));
+                document.getElementById('month-label').innerText = `${month}月 支出紀錄`;
             } else {
-                document.getElementById('month-label').innerText = `顯示所有月份紀錄`;
+                document.getElementById('month-label').innerText = `所有紀錄`;
             }
-
             renderList(data);
         }
 
-        async function addExpense(category) {
-            const amount = prompt(`輸入「${category}」金額:`);
-            if (!amount || isNaN(amount)) return;
-            const note = prompt(`備註內容:`, category);
-            
-            let emojiMenu = "選擇圖案：\n";
-            emojiList.forEach((e, i) => { emojiMenu += `${i + 1}.${e} `; if((i+1)%4==0) emojiMenu += "\n"; });
-            const choice = prompt(emojiMenu, "1");
-            const icon = emojiList[parseInt(choice) - 1] || '🎁';
-
-            const payer = prompt(`誰付的錢？ (爸/媽)`, '媽');
-            const finalNote = `${icon} ${note}`;
-
-            // 新增資料到 Supabase
-            await _supabase.from('expenses').insert([{ amount: parseFloat(amount), category, note: finalNote, payer }]);
-            fetchExpenses();
-        }
-
         async function deleteExpense(id) {
-            if (!confirm('確定要刪除這筆紀錄嗎？')) return;
+            if (!confirm('確定刪除？')) return;
             await _supabase.from('expenses').delete().eq('id', id);
             fetchExpenses();
         }
@@ -85,58 +167,29 @@
             list.forEach(item => {
                 total += item.amount;
                 const noteParts = item.note.split(' ');
-                const displayIcon = noteParts.length > 1 ? noteParts[0] : '🎁';
-                const displayText = noteParts.length > 1 ? noteParts.slice(1).join(' ') : item.note;
-                
-                // 格式化日期
-                const dateObj = new Date(item.created_at);
-                const dateDisplay = isNaN(dateObj) ? "無日期" : `${dateObj.getMonth()+1}/${dateObj.getDate()}`;
+                const icon = noteParts[0];
+                const text = noteParts.slice(1).join(' ');
+                const date = new Date(item.created_at);
 
-                const html = `
+                listEl.insertAdjacentHTML('beforeend', `
                     <div class="bg-white p-4 rounded-xl flex justify-between items-center shadow-sm">
                         <div class="flex items-center">
-                            <div class="bg-pink-100 p-2 rounded-lg mr-3 text-2xl">${displayIcon}</div>
+                            <div class="bg-pink-100 p-2 rounded-lg mr-3 text-2xl">${icon}</div>
                             <div>
-                                <p class="font-bold text-gray-700">${displayText}</p>
-                                <p class="text-[10px] text-gray-400 font-medium">📅 ${dateDisplay} · 👤 支付者: ${item.payer || '未註記'}</p>
+                                <p class="font-bold text-gray-700">${text}</p>
+                                <p class="text-[10px] text-gray-400">${date.getMonth()+1}/${date.getDate()} · ${item.payer}</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-4">
                             <span class="font-bold text-rose-500">-$${item.amount.toLocaleString()}</span>
-                            <button onclick="deleteExpense(${item.id})" class="text-gray-300 hover:text-red-400 p-1">
-                                <i class="fas fa-trash-alt text-xs"></i>
-                            </button>
+                            <button onclick="deleteExpense(${item.id})" class="text-gray-200 hover:text-red-400"><i class="fas fa-trash-alt"></i></button>
                         </div>
-                    </div>`;
-                listEl.insertAdjacentHTML('beforeend', html);
+                    </div>`);
             });
             totalEl.innerText = `$ ${total.toLocaleString()}`;
         }
 
         window.onload = fetchExpenses;
     </script>
-
-    <main class="p-4">
-        <div class="bg-gradient-to-br from-rose-400 to-pink-500 p-8 rounded-3xl text-white shadow-xl mb-6 text-center">
-            <h2 id="total-amount" class="text-5xl font-extrabold">$ 0</h2>
-        </div>
-
-        <div class="grid grid-cols-3 gap-3 mb-8 text-center">
-            <button onclick="addExpense('產檢')" class="bg-white p-3 rounded-2xl shadow-sm border-b-4 border-blue-200 active:scale-95 transition">
-                <i class="fas fa-stethoscope text-blue-400 text-xl mb-1"></i><p class="text-xs font-bold text-gray-600">產檢</p>
-            </button>
-            <button onclick="addExpense('用品')" class="bg-white p-3 rounded-2xl shadow-sm border-b-4 border-orange-200 active:scale-95 transition">
-                <i class="fas fa-baby-carriage text-orange-400 text-xl mb-1"></i><p class="text-xs font-bold text-gray-600">用品</p>
-            </button>
-            <button onclick="addExpense('營養')" class="bg-white p-3 rounded-2xl shadow-sm border-b-4 border-green-200 active:scale-95 transition">
-                <i class="fas fa-pills text-green-400 text-xl mb-1"></i><p class="text-xs font-bold text-gray-600">營養</p>
-            </button>
-        </div>
-
-        <section id="expense-list" class="space-y-3">
-            <p class="text-center text-gray-400 py-10">資料讀取中...</p>
-        </section>
-    </main>
-
 </body>
 </html>
